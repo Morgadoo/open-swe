@@ -182,6 +182,13 @@ export class ModelManager {
       modelProvider: provider,
       max_retries: MAX_RETRIES,
       ...(apiKey ? { apiKey } : {}),
+      ...(provider === "openai" && process.env.OPENAI_API_BASE
+        ? {
+            configuration: {
+              baseURL: process.env.OPENAI_API_BASE,
+            },
+          }
+        : {}),
       ...(thinkingModel && provider === "anthropic"
         ? {
             thinking: { budget_tokens: thinkingBudgetTokens, type: "enabled" },
@@ -201,6 +208,9 @@ export class ModelManager {
     logger.debug("Initializing model", {
       provider,
       modelName,
+      ...(provider === "openai" && process.env.OPENAI_API_BASE
+        ? { baseURL: process.env.OPENAI_API_BASE }
+        : {}),
     });
 
     return await initChatModel(modelName, modelOptions);
@@ -379,25 +389,25 @@ export class ModelManager {
   ): ModelLoadConfig | null {
     const defaultModels: Record<Provider, Record<LLMTask, string>> = {
       anthropic: {
-        [LLMTask.PLANNER]: "claude-opus-4-5",
-        [LLMTask.PROGRAMMER]: "claude-opus-4-5",
-        [LLMTask.REVIEWER]: "claude-opus-4-5",
-        [LLMTask.ROUTER]: "claude-haiku-4-5-latest",
-        [LLMTask.SUMMARIZER]: "claude-opus-4-5",
+        [LLMTask.PLANNER]: "claude-3-5-sonnet-latest",
+        [LLMTask.PROGRAMMER]: "claude-3-5-sonnet-latest",
+        [LLMTask.REVIEWER]: "claude-3-5-sonnet-latest",
+        [LLMTask.ROUTER]: "claude-3-5-haiku-latest",
+        [LLMTask.SUMMARIZER]: "claude-3-5-haiku-latest",
       },
       "google-genai": {
-        [LLMTask.PLANNER]: "gemini-3-pro-preview",
-        [LLMTask.PROGRAMMER]: "gemini-3-pro-preview",
-        [LLMTask.REVIEWER]: "gemini-flash-latest",
-        [LLMTask.ROUTER]: "gemini-flash-latest",
-        [LLMTask.SUMMARIZER]: "gemini-3-pro-preview",
+        [LLMTask.PLANNER]: "gemini-2.0-flash-exp",
+        [LLMTask.PROGRAMMER]: "gemini-2.0-flash-exp",
+        [LLMTask.REVIEWER]: "gemini-1.5-flash",
+        [LLMTask.ROUTER]: "gemini-1.5-flash",
+        [LLMTask.SUMMARIZER]: "gemini-1.5-flash",
       },
       openai: {
-        [LLMTask.PLANNER]: "gpt-5-codex",
-        [LLMTask.PROGRAMMER]: "gpt-5-codex",
-        [LLMTask.REVIEWER]: "gpt-5-codex",
-        [LLMTask.ROUTER]: "gpt-5-nano",
-        [LLMTask.SUMMARIZER]: "gpt-5-mini",
+        [LLMTask.PLANNER]: "claude-opus-4-5-20251101",
+        [LLMTask.PROGRAMMER]: "claude-opus-4-5-20251101",
+        [LLMTask.REVIEWER]: "claude-opus-4-5-20251101",
+        [LLMTask.ROUTER]: "claude-sonnet-4-5-20250929",
+        [LLMTask.SUMMARIZER]: "claude-sonnet-4-5-20250929",
       },
     };
 
