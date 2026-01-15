@@ -136,7 +136,7 @@ async function startProgrammerRun(input: {
     {
       input: runInput,
       config: {
-        recursion_limit: 400,
+        recursion_limit: config.configurable?.recursionLimit ?? 1000,
         configurable: {
           ...getCustomConfigurableFields(config),
           ...(isLocalMode(config) && { [LOCAL_MODE_HEADER]: "true" }),

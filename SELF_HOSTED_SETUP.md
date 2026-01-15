@@ -89,6 +89,12 @@ NEXT_PUBLIC_AGENT_URL="http://agent:2024"
 
 ### Self-Hosted LLM Setup
 
+There are two ways to configure self-hosted LLM endpoints:
+
+#### Option 1: Environment Variable (Simple)
+
+Set `OPENAI_API_BASE` in your `.env` file:
+
 | LLM Server | Default Port | Example Configuration |
 |------------|--------------|----------------------|
 | Ollama | 11434 | `http://host.docker.internal:11434/v1` |
@@ -97,6 +103,41 @@ NEXT_PUBLIC_AGENT_URL="http://agent:2024"
 | LocalAI | 8080 | `http://host.docker.internal:8080/v1` |
 
 **Note:** Use `host.docker.internal` to access services running on your host machine from within Docker containers.
+
+#### Option 2: UI Configuration (Recommended)
+
+The UI provides a more flexible way to configure OpenAI-compatible endpoints:
+
+1. Open http://localhost:3000
+2. Go to **Settings** → **API Keys** tab
+3. Scroll to **OpenAI-Compatible API** section
+4. Configure:
+   - **Base URL**: Your LLM server endpoint (e.g., `http://host.docker.internal:8317/v1`)
+   - **API Key**: Optional for local endpoints
+   - **Advanced Options**: Custom headers, timeout, max retries
+5. Click **Test Connection** to verify connectivity
+6. Click **Fetch Models** to discover available models
+7. Select a default model from the list or enter manually
+8. Enable the toggle to activate the provider
+
+**Benefits of UI Configuration:**
+- Dynamic model discovery
+- Connection testing
+- Custom headers support
+- No restart required to change settings
+- Visual feedback on connection status
+
+#### Supported OpenAI-Compatible Services
+
+| Service | Default Port | Notes |
+|---------|--------------|-------|
+| [OpenRouter](https://openrouter.ai) | 443 | `https://openrouter.ai/api/v1` (requires API key) |
+| [Ollama](https://ollama.ai) | 11434 | Local, `http://localhost:11434/v1` |
+| [LM Studio](https://lmstudio.ai) | 1234 | Local, `http://localhost:1234/v1` |
+| [LocalAI](https://localai.io) | 8080 | Local, `http://localhost:8080/v1` |
+| [vLLM](https://vllm.ai) | 8000 | Local, `http://localhost:8000/v1` |
+| [Text Gen WebUI](https://github.com/oobabooga/text-generation-webui) | 5000 | Local, `http://localhost:5000/v1` |
+| [LiteLLM](https://litellm.ai) | 4000 | Proxy, `http://localhost:4000/v1` |
 
 ### GitHub App Setup
 
@@ -275,13 +316,40 @@ docker compose build --no-cache
 
 ## Post-Deployment
 
-### Configure Model Names
+### Configure LLM Provider
 
-After starting Open SWE, configure the model names in the UI:
+After starting Open SWE, configure your LLM provider in the UI:
+
+#### Using OpenAI-Compatible Endpoint (Recommended for Self-Hosted)
 
 1. Open http://localhost:3000
-2. Go to **Settings** (gear icon)
-3. Update model names for each task:
+2. Go to **Settings** → **API Keys** tab
+3. Find **OpenAI-Compatible API** section
+4. Enter your **Base URL** (e.g., `http://host.docker.internal:8317/v1`)
+5. Click **Test Connection** to verify
+6. Click **Fetch Models** to discover available models
+7. Select a default model or enter one manually
+8. Toggle **Enable** to activate
+
+#### Using Standard Providers
+
+If using cloud providers (Anthropic, OpenAI, Google):
+
+1. Go to **Settings** → **API Keys** tab
+2. Enter your API key for the desired provider
+3. Go to **Settings** → **Configuration** tab
+4. Update model names for each task
+
+| Task | Example Model Name |
+|------|-------------------|
+| Planner | `anthropic:claude-3-5-sonnet-latest` |
+| Programmer | `anthropic:claude-3-5-sonnet-latest` |
+| Router | `anthropic:claude-3-5-haiku-latest` |
+| Summarizer | `anthropic:claude-3-5-haiku-latest` |
+
+#### Using Self-Hosted with OpenAI Provider
+
+If using `OPENAI_API_BASE` environment variable:
 
 | Task | Example Model Name |
 |------|-------------------|
@@ -290,7 +358,7 @@ After starting Open SWE, configure the model names in the UI:
 | Router | `openai:llama-3.1-8b-instruct` |
 | Summarizer | `openai:llama-3.1-70b-instruct` |
 
-**Format:** `provider:model-name` where provider is `openai` for OpenAI-compatible APIs.
+**Format:** `provider:model-name` where provider is `openai` for OpenAI-compatible APIs, or `openai-compatible` for UI-configured endpoints.
 
 ### Test Connectivity
 

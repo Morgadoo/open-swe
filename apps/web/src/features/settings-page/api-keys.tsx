@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useConfigStore, DEFAULT_CONFIG_KEY } from "@/hooks/useConfigStore";
+import { OpenAICompatibleConfigTab } from "./openai-compatible-config";
 
 interface ApiKey {
   id: string;
@@ -230,6 +231,9 @@ export function APIKeysTab() {
           </CardContent>
         </Card>
       ))}
+
+      {/* OpenAI-Compatible API Configuration */}
+      <OpenAICompatibleConfigTab />
     </div>
   );
 }
