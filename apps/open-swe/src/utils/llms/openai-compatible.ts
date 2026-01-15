@@ -457,12 +457,14 @@ export class OpenAICompatibleClient {
     if (id.includes("claude-3-sonnet")) return 200000;
     if (id.includes("claude-3-haiku")) return 200000;
     if (id.includes("claude-2")) return 100000;
+    if (id.includes("gpt-4.1")) return 1000000;
     if (id.includes("gpt-4-turbo") || id.includes("gpt-4o")) return 128000;
     if (id.includes("gpt-4-32k")) return 32768;
     if (id.includes("gpt-4")) return 8192;
     if (id.includes("gpt-3.5-turbo-16k")) return 16384;
     if (id.includes("gpt-3.5")) return 4096;
     if (id.includes("llama-2-70b")) return 4096;
+    if (id.includes("llama-3.1")) return 128000;
     if (id.includes("llama-3")) return 8192;
     if (id.includes("mistral-7b")) return 32768;
     if (id.includes("mixtral")) return 32768;

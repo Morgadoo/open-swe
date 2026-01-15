@@ -73,7 +73,7 @@ EXPOSE 2024
 ENTRYPOINT ["docker-entrypoint.sh"]
 
 # Start the agent
-CMD ["yarn", "workspace", "@openswe/agent", "dev", "--host", "0.0.0.0"]
+CMD ["yarn", "workspace", "@openswe/agent", "start", "--host", "0.0.0.0"]
 
 # Web production stage
 FROM node:20-alpine AS web

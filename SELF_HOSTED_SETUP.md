@@ -159,7 +159,7 @@ Follow these steps to create and configure your GitHub App:
 
 | Field | Value |
 |-------|-------|
-| **Callback URL** | `http://localhost:3000/api/auth/callback/github` |
+| **Callback URL** | `http://localhost:3000/api/auth/github/callback` |
 | **Expire user authorization tokens** | ✅ Checked (recommended) |
 | **Request user authorization during installation** | ❌ Unchecked |
 | **Enable Device Flow** | ❌ Unchecked |

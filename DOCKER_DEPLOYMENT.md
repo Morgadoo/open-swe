@@ -34,7 +34,7 @@ ANTHROPIC_API_KEY=your_anthropic_key
 OPENAI_API_KEY=your_openai_key
 GOOGLE_API_KEY=your_google_key
 
-# Required: LangSmith for tracing (optional but recommended)
+# Optional (recommended): LangSmith for tracing
 LANGCHAIN_API_KEY=your_langsmith_key
 
 # Required: GitHub App credentials for repo integration
@@ -43,8 +43,10 @@ GITHUB_APP_ID=your_app_id
 GITHUB_APP_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----\n...\n-----END RSA PRIVATE KEY-----"
 GITHUB_WEBHOOK_SECRET=your_webhook_secret
 
-# Required: Encryption key for secrets (generate with: openssl rand -hex 32)
-SECRETS_ENCRYPTION_KEY=$(openssl rand -hex 32)
+# Required: Encryption key for secrets
+# Generate by running: openssl rand -hex 32
+# Then paste the output below (do not use command substitution)
+SECRETS_ENCRYPTION_KEY=your_generated_hex_key
 
 # Optional: Daytona for cloud sandboxes
 DAYTONA_API_KEY=your_daytona_key

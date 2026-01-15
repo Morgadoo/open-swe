@@ -74,9 +74,9 @@ prompt_with_default() {
     
     read -r input
     if [ -z "$input" ] && [ -n "$default" ]; then
-        eval "$var_name='$default'"
+        printf -v "$var_name" '%s' "$default"
     else
-        eval "$var_name='$input'"
+        printf -v "$var_name" '%s' "$input"
     fi
 }
 
@@ -87,7 +87,7 @@ prompt_secret() {
     echo -ne "  ${prompt}: "
     read -rs input
     echo ""
-    eval "$var_name='$input'"
+    printf -v "$var_name" '%s' "$input"
 }
 
 prompt_yes_no() {
@@ -170,6 +170,14 @@ else
     print_warning "OpenSSL not found - will use fallback for key generation"
 fi
 
+SKIP_ENDPOINT_TEST=false
+if check_command curl; then
+    print_success "curl is installed"
+else
+    print_warning "curl not found - endpoint testing will be skipped"
+    SKIP_ENDPOINT_TEST=true
+fi
+
 # Check for existing .env
 if [ -f .env ]; then
     echo ""
@@ -212,12 +220,17 @@ case "$llm_choice" in
         
         echo ""
         echo -ne "  Testing endpoint... "
-        if test_endpoint "${TEST_ENDPOINT}/models"; then
-            echo -e "${GREEN}OK${NC}"
-            print_success "LLM endpoint is accessible"
+        if [ "$SKIP_ENDPOINT_TEST" = "false" ]; then
+            if test_endpoint "${TEST_ENDPOINT}/models"; then
+                echo -e "${GREEN}OK${NC}"
+                print_success "LLM endpoint is accessible"
+            else
+                echo -e "${YELLOW}Not reachable${NC}"
+                print_warning "LLM endpoint not accessible (ensure it's running before starting Open SWE)"
+            fi
         else
-            echo -e "${YELLOW}Not reachable${NC}"
-            print_warning "LLM endpoint not accessible (ensure it's running before starting Open SWE)"
+            echo -e "${YELLOW}Skipped${NC}"
+            print_warning "Endpoint test skipped (curl not available)"
         fi
         
         prompt_with_default "API key (if required)" "sk-no-key-required" "LLM_API_KEY"
@@ -254,8 +267,11 @@ if prompt_yes_no "Have you created a GitHub App?" "n"; then
     GITHUB_PRIVATE_KEY=""
     while IFS= read -r line; do
         [ -z "$line" ] && break
-        GITHUB_PRIVATE_KEY="${GITHUB_PRIVATE_KEY}${line}\n"
+        GITHUB_PRIVATE_KEY="${GITHUB_PRIVATE_KEY}${line}
+"
     done
+    # Remove trailing newline if present
+    GITHUB_PRIVATE_KEY="${GITHUB_PRIVATE_KEY%$'\n'}"
 else
     print_info "You can add GitHub App credentials later by editing .env"
     GITHUB_APP_NAME=""

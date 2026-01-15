@@ -195,6 +195,7 @@ export function httpStatusToErrorCode(
   if (status === 403) return OpenAICompatibleErrorCode.FORBIDDEN;
   if (status === 404) return OpenAICompatibleErrorCode.NOT_FOUND;
   if (status === 429) return OpenAICompatibleErrorCode.RATE_LIMITED;
+  if (status >= 400 && status < 500) return OpenAICompatibleErrorCode.BAD_REQUEST;
   if (status >= 500) return OpenAICompatibleErrorCode.SERVER_ERROR;
   return OpenAICompatibleErrorCode.SERVER_ERROR;
 }
