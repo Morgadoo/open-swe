@@ -315,6 +315,16 @@ export const GraphConfigurationMetadata: {
         "Maximum number of review actions allowed during the review phase. An action consists of a tool call.",
     },
   },
+  recursionLimit: {
+    x_open_swe_ui_config: {
+      type: "number",
+      default: 1000,
+      min: 100,
+      max: 5000,
+      description:
+        "Maximum number of recursive steps allowed during graph execution. Higher values allow more complex tasks but may increase execution time.",
+    },
+  },
   maxReviewCount: {
     x_open_swe_ui_config: {
       type: "hidden",
@@ -534,6 +544,14 @@ export const GraphConfiguration = z.object({
   maxReviewActions: withLangGraph(z.number().optional(), {
     metadata: GraphConfigurationMetadata.maxReviewActions,
   }),
+  /**
+   * Maximum number of recursive steps allowed during graph execution.
+   * Higher values allow more complex tasks but may increase execution time.
+   * @default 1000
+   */
+  recursionLimit: withLangGraph(z.number().optional(), {
+    metadata: GraphConfigurationMetadata.recursionLimit,
+  }),
 
   /**
    * The model ID to use for programming/other advanced technical tasks.
@@ -700,6 +718,31 @@ export const GraphConfiguration = z.object({
   maxReviewCount: withLangGraph(z.number().optional(), {
     metadata: GraphConfigurationMetadata.maxReviewCount,
   }),
+  /**
+   * Configuration for OpenAI-compatible API endpoint.
+   * Supports custom endpoints like OpenRouter, LM Studio, Ollama, etc.
+   */
+  openaiCompatibleConfig: withLangGraph(
+    z
+      .object({
+        baseUrl: z.string(),
+        apiKey: z.string().optional(),
+        organizationId: z.string().optional(),
+        customHeaders: z.record(z.string(), z.string()).optional(),
+        timeout: z.number().optional(),
+        maxRetries: z.number().optional(),
+        defaultModel: z.string().optional(),
+        enabled: z.boolean(),
+      })
+      .optional(),
+    {
+      metadata: {
+        x_open_swe_ui_config: {
+          type: "hidden",
+        },
+      },
+    },
+  ),
 });
 
 export type GraphConfig = LangGraphRunnableConfig<

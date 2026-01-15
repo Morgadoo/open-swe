@@ -189,11 +189,13 @@ function createToolsAndPrompt(
 
   return {
     providerTools: {
+      "openai-compatible": nonAnthropicTools,
       anthropic: anthropicTools,
       openai: nonAnthropicTools,
       "google-genai": nonAnthropicTools,
     },
     providerMessages: {
+      "openai-compatible": nonAnthropicMessages,
       anthropic: anthropicMessages,
       openai: nonAnthropicMessages,
       "google-genai": nonAnthropicMessages,

@@ -4,10 +4,7 @@ import {
 } from "langchain/chat_models/universal";
 import { GraphConfig } from "@openswe/shared/open-swe/types";
 import { createLogger, LogLevel } from "../logger.js";
-import {
-  LLMTask,
-  TASK_TO_CONFIG_DEFAULTS_MAP,
-} from "@openswe/shared/open-swe/llm-task";
+import { LLMTask, getTaskDefaults } from "@openswe/shared/open-swe/llm-task";
 import { isAllowedUser } from "@openswe/shared/github/allowed-users";
 import { decryptSecret } from "@openswe/shared/crypto";
 import { API_KEY_REQUIRED_MESSAGE } from "@openswe/shared/constants";
@@ -44,6 +41,7 @@ export enum CircuitState {
 }
 
 export const PROVIDER_FALLBACK_ORDER = [
+  "openai-compatible",
   "openai",
   "anthropic",
   "google-genai",
@@ -76,6 +74,8 @@ const providerToApiKey = (
   apiKeys: Record<string, string>,
 ): string => {
   switch (providerName) {
+    case "openai-compatible":
+      return apiKeys.openaiCompatibleApiKey;
     case "openai":
       return apiKeys.openaiApiKey;
     case "anthropic":
@@ -178,10 +178,56 @@ export class ModelManager {
 
     const apiKey = this.getUserApiKey(graphConfig, provider);
 
+    // Get OpenAI-compatible configuration if applicable
+    const openaiCompatibleConfig =
+      graphConfig.configurable?.openaiCompatibleConfig;
+    const isOpenAICompatibleFromConfig =
+      provider === "openai-compatible" && openaiCompatibleConfig?.enabled;
+
+    // Check for OPENAI_API_BASE environment variable for openai-compatible provider
+    const openaiApiBase = process.env.OPENAI_API_BASE;
+    const isOpenAICompatibleFromEnv =
+      provider === "openai-compatible" && openaiApiBase;
+
+    const isOpenAICompatible = isOpenAICompatibleFromConfig || isOpenAICompatibleFromEnv;
+
+    // For openai-compatible, we use "openai" as the model provider since it uses the same API format
+    const effectiveProvider = isOpenAICompatible ? "openai" : provider;
+
+    // Determine the base URL to use
+    const getBaseUrl = (): string | undefined => {
+      if (isOpenAICompatibleFromConfig && openaiCompatibleConfig?.baseUrl) {
+        return openaiCompatibleConfig.baseUrl;
+      }
+      if (isOpenAICompatibleFromEnv) {
+        return openaiApiBase;
+      }
+      if (provider === "openai" && openaiApiBase) {
+        return openaiApiBase;
+      }
+      return undefined;
+    };
+
+    const baseURL = getBaseUrl();
+
     const modelOptions: InitChatModelArgs = {
-      modelProvider: provider,
+      modelProvider: effectiveProvider,
       max_retries: MAX_RETRIES,
       ...(apiKey ? { apiKey } : {}),
+      // OpenAI-compatible provider configuration
+      ...(baseURL
+        ? {
+            configuration: {
+              baseURL,
+              ...(isOpenAICompatibleFromConfig && openaiCompatibleConfig?.customHeaders
+                ? { defaultHeaders: openaiCompatibleConfig.customHeaders }
+                : {}),
+              ...(isOpenAICompatibleFromConfig && openaiCompatibleConfig?.timeout
+                ? { timeout: openaiCompatibleConfig.timeout }
+                : {}),
+            },
+          }
+        : {}),
       ...(thinkingModel && provider === "anthropic"
         ? {
             thinking: { budget_tokens: thinkingBudgetTokens, type: "enabled" },
@@ -200,7 +246,9 @@ export class ModelManager {
 
     logger.debug("Initializing model", {
       provider,
+      effectiveProvider,
       modelName,
+      ...(baseURL ? { baseURL } : {}),
     });
 
     return await initChatModel(modelName, modelOptions);
@@ -303,36 +351,44 @@ export class ModelManager {
     config: GraphConfig,
     task: LLMTask,
   ): ModelLoadConfig {
+    // Determine if OpenAI-compatible is enabled (via env var or config)
+    const isOpenAICompatibleEnabled =
+      config.configurable?.openaiCompatibleConfig?.enabled === true ||
+      !!process.env.OPENAI_API_BASE;
+
+    // Get appropriate defaults based on whether OpenAI-compatible is enabled
+    const defaults = getTaskDefaults(task, isOpenAICompatibleEnabled);
+
     const taskMap = {
       [LLMTask.PLANNER]: {
         modelName:
-          config.configurable?.[`${task}ModelName`] ??
-          TASK_TO_CONFIG_DEFAULTS_MAP[task].modelName,
-        temperature: config.configurable?.[`${task}Temperature`] ?? 0,
+          config.configurable?.[`${task}ModelName`] ?? defaults.modelName,
+        temperature:
+          config.configurable?.[`${task}Temperature`] ?? defaults.temperature,
       },
       [LLMTask.PROGRAMMER]: {
         modelName:
-          config.configurable?.[`${task}ModelName`] ??
-          TASK_TO_CONFIG_DEFAULTS_MAP[task].modelName,
-        temperature: config.configurable?.[`${task}Temperature`] ?? 0,
+          config.configurable?.[`${task}ModelName`] ?? defaults.modelName,
+        temperature:
+          config.configurable?.[`${task}Temperature`] ?? defaults.temperature,
       },
       [LLMTask.REVIEWER]: {
         modelName:
-          config.configurable?.[`${task}ModelName`] ??
-          TASK_TO_CONFIG_DEFAULTS_MAP[task].modelName,
-        temperature: config.configurable?.[`${task}Temperature`] ?? 0,
+          config.configurable?.[`${task}ModelName`] ?? defaults.modelName,
+        temperature:
+          config.configurable?.[`${task}Temperature`] ?? defaults.temperature,
       },
       [LLMTask.ROUTER]: {
         modelName:
-          config.configurable?.[`${task}ModelName`] ??
-          TASK_TO_CONFIG_DEFAULTS_MAP[task].modelName,
-        temperature: config.configurable?.[`${task}Temperature`] ?? 0,
+          config.configurable?.[`${task}ModelName`] ?? defaults.modelName,
+        temperature:
+          config.configurable?.[`${task}Temperature`] ?? defaults.temperature,
       },
       [LLMTask.SUMMARIZER]: {
         modelName:
-          config.configurable?.[`${task}ModelName`] ??
-          TASK_TO_CONFIG_DEFAULTS_MAP[task].modelName,
-        temperature: config.configurable?.[`${task}Temperature`] ?? 0,
+          config.configurable?.[`${task}ModelName`] ?? defaults.modelName,
+        temperature:
+          config.configurable?.[`${task}Temperature`] ?? defaults.temperature,
       },
     };
 
@@ -378,6 +434,15 @@ export class ModelManager {
     task: LLMTask,
   ): ModelLoadConfig | null {
     const defaultModels: Record<Provider, Record<LLMTask, string>> = {
+      // OpenAI-compatible uses dynamic models from the endpoint
+      // These are fallback defaults that may be overridden by user config
+      "openai-compatible": {
+        [LLMTask.PLANNER]: "gpt-4o",
+        [LLMTask.PROGRAMMER]: "gpt-4o",
+        [LLMTask.REVIEWER]: "gpt-4o",
+        [LLMTask.ROUTER]: "gpt-4o-mini",
+        [LLMTask.SUMMARIZER]: "gpt-4o-mini",
+      },
       anthropic: {
         [LLMTask.PLANNER]: "claude-opus-4-5",
         [LLMTask.PROGRAMMER]: "claude-opus-4-5",

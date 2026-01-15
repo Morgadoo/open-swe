@@ -281,11 +281,13 @@ async function createToolsAndPrompt(
 
   return {
     providerTools: {
+      "openai-compatible": nonAnthropicModelTools,
       anthropic: anthropicModelTools,
       openai: nonAnthropicModelTools,
       "google-genai": nonAnthropicModelTools,
     },
     providerMessages: {
+      "openai-compatible": nonAnthropicMessages,
       anthropic: anthropicMessages,
       openai: nonAnthropicMessages,
       "google-genai": nonAnthropicMessages,

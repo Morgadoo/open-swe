@@ -213,7 +213,7 @@ export async function createRunFromWebhook(inputs: {
   const run = await langGraphClient.runs.create(threadId, MANAGER_GRAPH_ID, {
     input: inputs.runInput,
     config: {
-      recursion_limit: 400,
+      recursion_limit: inputs.configurable?.recursionLimit ?? 1000,
       configurable: inputs.configurable,
     },
     ifNotExists: "create",

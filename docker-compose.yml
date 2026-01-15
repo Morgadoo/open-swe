@@ -1,0 +1,134 @@
+services:
+  # Open SWE Agent - LangGraph-based coding agent
+  agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: agent
+    container_name: open-swe-agent
+    ports:
+      - "2024:2024"
+    environment:
+      # LangSmith tracing
+      - LANGCHAIN_PROJECT=${LANGCHAIN_PROJECT:-default}
+      - LANGCHAIN_API_KEY=${LANGCHAIN_API_KEY}
+      - LANGCHAIN_TRACING_V2=${LANGCHAIN_TRACING_V2:-true}
+      - LANGCHAIN_TEST_TRACKING=${LANGCHAIN_TEST_TRACKING:-false}
+      - LANGSMITH_TRACING=${LANGSMITH_TRACING:-true}
+      - LANGSMITH_ENDPOINT=${LANGSMITH_ENDPOINT:-https://api.smith.langchain.com}
+      - LANGSMITH_API_KEY=${LANGSMITH_API_KEY:-${LANGCHAIN_API_KEY}}
+      - LANGSMITH_PROJECT=${LANGSMITH_PROJECT:-${LANGCHAIN_PROJECT}}
+      
+      # LLM Provider Keys (Cloud)
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      
+      # Self-hosted LLM Configuration (OpenAI-compatible API)
+      # Set OPENAI_API_BASE to use a self-hosted endpoint like Ollama, vLLM, LM Studio, etc.
+      # Example: http://127.0.0.1:8317/v1 or http://host.docker.internal:8317/v1
+      - OPENAI_API_BASE=${OPENAI_API_BASE:-}
+      
+      # Infrastructure
+      - DAYTONA_API_KEY=${DAYTONA_API_KEY}
+      
+      # Tools
+      - FIRECRAWL_API_KEY=${FIRECRAWL_API_KEY}
+      
+      # GitHub App Configuration
+      - GITHUB_APP_NAME=${GITHUB_APP_NAME}
+      - GITHUB_APP_ID=${GITHUB_APP_ID}
+      - GITHUB_APP_PRIVATE_KEY=${GITHUB_APP_PRIVATE_KEY}
+      - GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET}
+      - GITHUB_TRIGGER_USERNAME=${GITHUB_TRIGGER_USERNAME:-open-swe}
+      
+      # Other Configuration
+      - PORT=2024
+      - OPEN_SWE_APP_URL=${OPEN_SWE_APP_URL:-http://localhost:3000}
+      - SECRETS_ENCRYPTION_KEY=${SECRETS_ENCRYPTION_KEY}
+      - SKIP_CI_UNTIL_LAST_COMMIT=${SKIP_CI_UNTIL_LAST_COMMIT:-true}
+      - NODE_ENV=production
+    volumes:
+      # Mount for persistent data if needed
+      - agent-data:/app/data
+    restart: unless-stopped
+    networks:
+      - open-swe-network
+    # Use host.docker.internal to access services on the host machine
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    # Healthcheck disabled - LangSmith API errors don't prevent server from starting
+    # healthcheck:
+    #   test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:2024/"]
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 5
+    #   start_period: 60s
+    # Optional: Resource limits (uncomment to enable)
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: '${AGENT_CPU_LIMIT:-2}'
+    #       memory: ${AGENT_MEMORY_LIMIT:-4g}
+    #     reservations:
+    #       cpus: '1'
+    #       memory: 2g
+
+  # Open SWE Web - Next.js web application
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: web
+      args:
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:3000/api}
+        - NEXT_PUBLIC_AGENT_URL=${NEXT_PUBLIC_AGENT_URL:-http://agent:2024}
+        - NEXT_PUBLIC_GITHUB_APP_CLIENT_ID=${NEXT_PUBLIC_GITHUB_APP_CLIENT_ID}
+        - NEXT_PUBLIC_ALLOWED_USERS_LIST=${NEXT_PUBLIC_ALLOWED_USERS_LIST:-[]}
+    container_name: open-swe-web
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - PORT=3000
+      - NEXT_PUBLIC_AGENT_URL=${NEXT_PUBLIC_AGENT_URL:-http://agent:2024}
+      - NEXT_PUBLIC_ALLOWED_USERS_LIST=${NEXT_PUBLIC_ALLOWED_USERS_LIST:-[]}
+      - SECRETS_ENCRYPTION_KEY=${SECRETS_ENCRYPTION_KEY}
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:3000/api}
+      - LANGGRAPH_API_URL=${LANGGRAPH_API_URL:-http://agent:2024}
+      
+      # GitHub App OAuth Configuration (required for web authentication)
+      - GITHUB_APP_NAME=${GITHUB_APP_NAME}
+      - GITHUB_APP_ID=${GITHUB_APP_ID}
+      - GITHUB_APP_PRIVATE_KEY=${GITHUB_APP_PRIVATE_KEY}
+      - NEXT_PUBLIC_GITHUB_APP_CLIENT_ID=${NEXT_PUBLIC_GITHUB_APP_CLIENT_ID}
+      - GITHUB_APP_CLIENT_SECRET=${GITHUB_APP_CLIENT_SECRET}
+      - GITHUB_APP_REDIRECT_URI=${GITHUB_APP_REDIRECT_URI:-http://localhost:3000/api/auth/github/callback}
+    depends_on:
+      - agent
+    restart: unless-stopped
+    networks:
+      - open-swe-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    # Optional: Resource limits (uncomment to enable)
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: '${WEB_CPU_LIMIT:-1}'
+    #       memory: ${WEB_MEMORY_LIMIT:-2g}
+    #     reservations:
+    #       cpus: '0.5'
+    #       memory: 1g
+
+volumes:
+  agent-data:
+    driver: local
+
+networks:
+  open-swe-network:
+    driver: bridge

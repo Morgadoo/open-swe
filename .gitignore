@@ -50,3 +50,4 @@ credentials.json
 
 # Test traces
 apps/cli/test_traces/
+.ralph/
