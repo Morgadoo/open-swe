@@ -73,3 +73,59 @@ This is a Yarn workspace monorepo with Turbo build orchestration containing thre
 **Writing Tests**: Focus on testing core business logic, utilities, and agent functionality. Integration tests should verify end-to-end workflows. Use the existing test patterns and maintain consistency with the established testing structure.
 </testing_instructions>
 
+<loop_prevention>
+**Overview**: The loop prevention system provides comprehensive cycle detection, graceful degradation, and autonomous recovery capabilities to prevent the agent from getting stuck in repetitive action patterns.
+
+**Architecture**: Located in `apps/open-swe/src/utils/loop-prevention/`, the system consists of:
+- Cycle Detector: Identifies exact matches, semantic similarity, and pattern cycles
+- History Tracker: Maintains sliding window of execution history with pattern analysis
+- Similarity Analyzer: Computes semantic similarity between tool calls using args hashing
+- Degradation Manager: Implements progressive degradation levels (NORMAL → WARNING → RESTRICTED → MINIMAL → HALTED)
+- Escalation Manager: Handles human escalation with context preservation
+- Self-Healing: Automatic recovery strategies for common error patterns
+- Config Manager: Centralized configuration with tool-specific overrides
+
+**Degradation Levels**:
+- NORMAL (0): Standard operation with full tool access
+- WARNING (1): Increased monitoring, strategy switching suggested
+- RESTRICTED (2): Limited tool access, clarification requests enabled
+- MINIMAL (3): Minimal operations only, human escalation triggered
+- HALTED (4): Execution paused, requires human intervention
+
+**Configuration**: Loop prevention is configured via `LoopPreventionConfig` in the graph configuration:
+- `enabled`: Enable/disable loop prevention (default: true)
+- `exactMatchThreshold`: Number of exact matches before triggering (default: 3)
+- `semanticSimilarityThreshold`: Similarity score threshold 0-1 (default: 0.85)
+- `semanticMatchThreshold`: Number of similar matches before triggering (default: 5)
+- `patternDetectionEnabled`: Enable pattern cycle detection (default: true)
+- `toolSpecificConfig`: Per-tool threshold overrides
+- `degradationLevels`: Custom degradation level configurations
+
+**Integration**: The system integrates with the programmer graph via `beforeToolExecution` and `afterToolExecution` hooks in the `takeAction` node. Use `integrateLoopPrevention()` from `apps/open-swe/src/utils/loop-prevention/integration.ts` to enable.
+
+**State Management**: Loop detection state is tracked in `GraphState.loopDetectionState`:
+- `executionHistory`: Sliding window of recent tool executions
+- `consecutiveErrorCount`: Counter for consecutive errors
+- `toolSpecificErrorCounts`: Per-tool error tracking
+- `similarActionCount`: Count of semantically similar actions
+- `degradationLevel`: Current degradation level (0-4)
+
+**Self-Healing Strategies**: Built-in recovery strategies include:
+- Sandbox reconnection for connection errors
+- File refresh before edit operations
+- Command retry with extended timeout
+- Alternative tool suggestions (e.g., text_editor ↔ apply_patch)
+
+**Testing**: Comprehensive test coverage in `apps/open-swe/src/utils/loop-prevention/__tests__/`:
+- Unit tests for all components (cycle-detector, similarity-analyzer, degradation-manager, etc.)
+- Integration tests for end-to-end loop detection flow
+- Test utilities for creating mock execution histories
+
+**Best Practices**:
+- Configure tool-specific thresholds for tools with expected repetition (e.g., grep, shell)
+- Monitor degradation level transitions in production to tune thresholds
+- Use checkpoint system in conjunction with loop prevention for state recovery
+- Review escalation logs to identify common failure patterns
+- Adjust similarity threshold based on false positive/negative rates
+</loop_prevention>
+

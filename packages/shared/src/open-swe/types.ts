@@ -20,6 +20,17 @@ import {
 import { withLangGraph } from "@langchain/langgraph/zod";
 import { BaseMessage } from "@langchain/core/messages";
 import { tokenDataReducer } from "../caching.js";
+import {
+  LoopDetectionState,
+  DEFAULT_LOOP_DETECTION_STATE,
+} from "./loop-prevention/types.js";
+import {
+  AutonomousOperationMetrics,
+  ExecutionCheckpoint,
+  LongTermContext,
+  DEFAULT_AUTONOMOUS_METRICS,
+  DEFAULT_LONG_TERM_CONTEXT,
+} from "./loop-prevention/autonomous-types.js";
 
 export interface CacheMetrics {
   cacheCreationInputTokens: number;
@@ -283,6 +294,92 @@ export const GraphAnnotation = MessagesZodState.extend({
       fn: tokenDataReducer,
     },
   }),
+
+  /**
+   * Loop detection state for preventing infinite loops and repetitive failures.
+   */
+  loopDetectionState: withLangGraph(z.custom<LoopDetectionState>(), {
+    reducer: {
+      schema: z.custom<LoopDetectionState>(),
+      fn: (state, update) => ({
+        ...state,
+        ...update,
+        executionHistory: [
+          ...(state?.executionHistory ?? []),
+          ...(update?.executionHistory ?? []),
+        ].slice(-1000),
+        toolSpecificErrorCounts: {
+          ...(state?.toolSpecificErrorCounts ?? {}),
+          ...(update?.toolSpecificErrorCounts ?? {}),
+        },
+      }),
+    },
+    default: () => DEFAULT_LOOP_DETECTION_STATE,
+  }),
+
+  /**
+   * Metrics tracking autonomous operation health.
+   */
+  autonomousMetrics: withLangGraph(z.custom<AutonomousOperationMetrics>(), {
+    reducer: {
+      schema: z.custom<AutonomousOperationMetrics>(),
+      fn: (state, update) => ({
+        ...state,
+        ...update,
+      }),
+    },
+    default: () => DEFAULT_AUTONOMOUS_METRICS,
+  }),
+
+  /**
+   * Execution checkpoints for state recovery.
+   */
+  executionCheckpoints: withLangGraph(z.custom<ExecutionCheckpoint[]>(), {
+    reducer: {
+      schema: z.custom<ExecutionCheckpoint[]>(),
+      fn: (
+        state: ExecutionCheckpoint[] | undefined,
+        update: ExecutionCheckpoint[] | undefined,
+      ) => [...(state ?? []), ...(update ?? [])].slice(-20),
+    },
+    default: () => [] as ExecutionCheckpoint[],
+  }),
+
+  /**
+   * Long-term context preserved across operations.
+   */
+  longTermContext: withLangGraph(z.custom<LongTermContext>(), {
+    reducer: {
+      schema: z.custom<LongTermContext>(),
+      fn: (state, update) => ({
+        keyInsights: [
+          ...new Set([
+            ...(state?.keyInsights ?? []),
+            ...(update?.keyInsights ?? []),
+          ]),
+        ].slice(-50),
+        importantFiles: [
+          ...new Set([
+            ...(state?.importantFiles ?? []),
+            ...(update?.importantFiles ?? []),
+          ]),
+        ].slice(-100),
+        learnedPatterns: [
+          ...new Set([
+            ...(state?.learnedPatterns ?? []),
+            ...(update?.learnedPatterns ?? []),
+          ]),
+        ].slice(-30),
+        avoidedApproaches: [
+          ...new Set([
+            ...(state?.avoidedApproaches ?? []),
+            ...(update?.avoidedApproaches ?? []),
+          ]),
+        ].slice(-30),
+      }),
+    },
+    default: () => DEFAULT_LONG_TERM_CONTEXT,
+  }),
 });
 
 export type GraphState = z.infer<typeof GraphAnnotation>;
@@ -509,6 +606,22 @@ export const GraphConfigurationMetadata: {
   run_id: {
     x_open_swe_ui_config: {
       type: "hidden",
+    },
+  },
+  loopPreventionConfig: {
+    x_open_swe_ui_config: {
+      type: "json",
+      default: "{}",
+      description:
+        "JSON configuration for loop prevention system. Controls cycle detection thresholds, degradation levels (NORMAL → WARNING → RESTRICTED → MINIMAL → HALTED), and escalation behavior. See docs/loop-prevention-configuration.md for detailed configuration options and examples.",
+    },
+  },
+  autonomousLimits: {
+    x_open_swe_ui_config: {
+      type: "json",
+      default: "{}",
+      description:
+        "JSON configuration for autonomous operation limits. Controls max total actions, max actions per task, max consecutive errors, max execution time, max tokens per session, and checkpoint intervals. See docs/loop-prevention-configuration.md for configuration details.",
     },
   },
 };
@@ -743,6 +856,20 @@ export const GraphConfiguration = z.object({
       },
     },
   ),
+
+  /**
+   * Loop prevention configuration as JSON string.
+   */
+  loopPreventionConfig: withLangGraph(z.string().optional(), {
+    metadata: GraphConfigurationMetadata.loopPreventionConfig,
+  }),
+
+  /**
+   * Autonomous operation limits as JSON string.
+   */
+  autonomousLimits: withLangGraph(z.string().optional(), {
+    metadata: GraphConfigurationMetadata.autonomousLimits,
+  }),
 });
 
 export type GraphConfig = LangGraphRunnableConfig<
